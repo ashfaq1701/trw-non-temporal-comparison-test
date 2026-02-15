@@ -1,0 +1,28 @@
+(base) ./../ThunderRW/build/random_walk/genericwalk.out -f /mnt/lustre/users/inf/ms2420/non-temporal-comparison-datasets/static_preprocessed_thunderrw/delicious -st 2 -wn 10000000 -wo /mnt/lustre/users/inf/ms2420/non-temporal-comparison-datasets/thunderrw_walks.txt
+
+2026-02-15 20:40:37 INFO  (et: 0.000009 s) (func: main)  creeper_main.h:20: Step interleaving enabled.
+2026-02-15 20:40:37 INFO  (et: 0.000073 s) (func: main)  creeper_main.h:24: Task ring size 64, Small ring size 64, Search ring size 32
+2026-02-15 20:40:37 INFO  (et: 0.000100 s) (func: load_csr)  graph.cpp:46: Load graph in CSR from /mnt/lustre/users/inf/ms2420/non-temporal-comparison-datasets/static_preprocessed_thunderrw/delicious
+2026-02-15 20:40:37 INFO  (et: 0.000118 s) (func: load_csr_degree_file)  graph.cpp:234: Load degree file...
+2026-02-15 20:40:37 INFO  (et: 0.222206 s) (func: load_csr_degree_file)  graph.cpp:250: Load degree file time: 0.222 seconds
+2026-02-15 20:40:37 INFO  (et: 0.222726 s) (func: load_csr_adj_file)  graph.cpp:255: Load adj file...
+2026-02-15 20:40:37 INFO  (et: 0.258657 s) (func: load_csr_adj_file)  graph.cpp:272: malloc and sequential-scan time: 0.035 seconds
+2026-02-15 20:40:38 INFO  (et: 0.703189 s) (func: load_csr_adj_file)  graph.cpp:285: Load adj file time: 0.444 seconds
+2026-02-15 20:40:38 INFO  (et: 0.785972 s) (func: load_csr)  graph.cpp:98: Load graph time: 0.785 seconds
+2026-02-15 20:40:38 INFO  (et: 0.809350 s) (func: print_metadata)  graph.cpp:597: Graph Metadata:
+2026-02-15 20:40:38 INFO  (et: 0.809404 s) (func: print_metadata)  graph.cpp:598: Undirected, vertex unlabeled, vertex unweighted, edge unlabeled, edge unweighted
+2026-02-15 20:40:38 INFO  (et: 0.809414 s) (func: print_metadata)  graph.cpp:604: |V| = 33777769, |E| = 274478882, d = 8.13, node with max degree = 29, max degree = 1057783, CSR Memory Cost (GB) = 1.274178
+2026-02-15 20:40:38 INFO  (et: 1.175859 s) (func: compute)  creeper.h:732: Configuration: Static, ITS, thread num 1, length 80, cache hint 3
+2026-02-15 20:40:38 INFO  (et: 1.175922 s) (func: static_initialization)  creeper.h:105: Initialize...
+2026-02-15 20:40:38 INFO  (et: 1.354470 s) (func: static_initialization)  creeper.h:175: Preprocessing time: 0.178535 seconds
+2026-02-15 20:40:38 INFO  (et: 1.355006 s) (func: compute)  creeper.h:797: Compute...
+2026-02-15 20:41:45 INFO  (et: 68.418682 s) (func: static_compute)  creeper.h:534: Thread 0 Walking time (seconds): 67.058491
+2026-02-15 20:41:45 INFO  (et: 68.418866 s) (func: static_compute)  creeper.h:535: Thread 0 Num of completed walkers: 10000000
+2026-02-15 20:41:45 INFO  (et: 68.418877 s) (func: static_compute)  creeper.h:536: Thread 0 Num of steps: 790000000
+2026-02-15 20:41:45 INFO  (et: 68.418888 s) (func: static_compute)  creeper.h:537: Thread 0 Throughput (steps per second): 11780760.26
+2026-02-15 20:41:45 INFO  (et: 68.418988 s) (func: compute)  creeper.h:881: Walking time (seconds): 67.063953
+2026-02-15 20:41:45 INFO  (et: 68.419037 s) (func: compute)  creeper.h:882: Num of steps: 790000000
+2026-02-15 20:41:45 INFO  (et: 68.419057 s) (func: compute)  creeper.h:883: Throughput (steps per second): 11779800.64
+2026-02-15 20:42:19 INFO  (et: 102.564726 s) (func: export_walk_sequences)  creeper.h:720: Walk sequences exported to thunderrw_walks.txt
+2026-02-15 20:42:54 INFO  (et: 136.986427 s) (func: compute)  creeper.h:891: Release...
+2026-02-15 20:42:54 INFO  (et: 137.007200 s) (func: main)  creeper_main.h:76: Done.

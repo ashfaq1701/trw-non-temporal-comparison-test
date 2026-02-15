@@ -1,0 +1,10 @@
+(base) ./../flowwalker-artifact/build/bin/flowwalker --input /mnt/lustre/users/inf/ms2420/non-temporal-comparison-datasets/static_preprocessed_flowwalker/delicious --deepwalk --n=10000000 --save_walks --walks_file /mnt/lustre/users/inf/ms2420/non-temporal-comparison-datasets/flowwalker_walks.txt
+
+---------------------------------------------------------------------------------------------------------
+Vertex count:33777768 Expected edge count: 274478882
+Graph load (success): 33777768 verts, 274478882 edges 0.354199 second(s)
+Read Graph!
+Max degree: 1057783, idx: 942870
+/its/home/ms2420/flowwalker-artifact/src/walk.cu:531 HOST: walk_test
+========start timing
+/its/home/ms2420/flowwalker-artifact/src/walk.cu:570 HOST: grid:336,block:512,sampling time:601697.842121 ms

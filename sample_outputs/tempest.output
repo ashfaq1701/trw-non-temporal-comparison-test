@@ -1,0 +1,16 @@
+(base) ./../temporal-random-walk/build/bin/walk_sampling_speed_test /mnt/lustre/users/inf/ms2420/non-temporal-comparison-datasets/temporal/delicious.csv /mnt/lustre/users/inf/ms2420/non-temporal-comparison-datasets/tempest_walks.txt
+
+Running on: GPU
+Graph type: Undirected
+Edges loaded: 301183605
+Graph constructed. Nodes: 33777768 Edges: 301183605
+Generating walks...
+Walk generation completed.
+Total walks: 10000000
+Total steps: 105813232
+Average walk length: 10.5813
+Time taken: 3.5742 seconds
+Throughput:
+  Walks/sec: 2797866.6852
+  Steps/sec: 29605131.6664
+Walks dumped to: tempest_walks.txt
