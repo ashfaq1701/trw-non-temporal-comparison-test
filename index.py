@@ -86,7 +86,13 @@ def validate_walk(walk, ts_map):
 
 
 def validate_walk_file(walk_file, ts_map, directed=False):
+    """
+    Validates walks and returns total hops, invalid hops, and correct walks count.
+    Follows the greedy 'earliest-feasible' assignment rule[cite: 1114, 1155].
+    """
     correct_walks = 0
+    total_hops = 0
+    invalid_hops = 0
 
     with open(walk_file, "r") as f:
         for line in f:
@@ -95,34 +101,35 @@ def validate_walk_file(walk_file, ts_map, directed=False):
                 continue
 
             t_prev = -1
-            valid = True
+            walk_valid = True
 
             for i in range(len(nodes) - 1):
+                total_hops += 1
                 u = int(nodes[i])
                 v = int(nodes[i + 1])
 
                 if not directed:
-                    if u > v:
-                        u, v = v, u
+                    if u > v: u, v = v, u
 
                 key = (np.uint64(u) << 32) | np.uint64(v)
-
                 arr = ts_map.get(key)
-                if arr is None:
-                    valid = False
-                    break
 
-                j = bisect_right(arr, t_prev)
-                if j == len(arr):
-                    valid = False
-                    break
+                # Check for existence and temporal causality [cite: 1120, 1122]
+                valid_ts_index = bisect_right(arr, t_prev) if arr is not None else len(arr) if arr else 0
 
-                t_prev = arr[j]
+                if arr is None or valid_ts_index == len(arr):
+                    invalid_hops += 1
+                    walk_valid = False
+                    # We continue the walk to count all invalid hops,
+                    # but the walk is marked as invalid for the remainder.
+                    t_prev = float('inf')
+                else:
+                    t_prev = arr[valid_ts_index]
 
-            if valid:
+            if walk_valid:
                 correct_walks += 1
 
-    return correct_walks
+    return total_hops, invalid_hops, correct_walks
 
 
 def get_flowwalker_metrics(dataset, is_directed, num_walks, n_runs):
@@ -172,16 +179,20 @@ def get_flowwalker_metrics(dataset, is_directed, num_walks, n_runs):
         steps_per_sec = total_steps / sampling_time_sec
         steps_per_sec_runs.append(steps_per_sec)
 
-        correct_walks = validate_walk_file(
+        total_steps, total_invalid, total_correct = validate_walk_file(
             FLOWWALKER_OUTPUT_FILE,
             ts_map,
             directed=is_directed
         )
 
-        correct_walks_runs.append(correct_walks)
+        invalid_step_percent = (total_invalid / total_steps) * 100 if total_steps > 0 else 0
+        invalid_walk_percent = ((num_walks - total_correct) / num_walks) * 100
 
         print(f"Steps/sec: {steps_per_sec:.4f}")
-        print(f"Correct temporal walks: {correct_walks}")
+        print(f"Invalid Hop %: {invalid_step_percent:.2f}%")
+        print(f"Invalid Walk %: {invalid_walk_percent:.2f}%")
+
+        correct_walks_runs.append(total_correct)
 
     return steps_per_sec_runs, correct_walks_runs
 
@@ -227,16 +238,20 @@ def get_thunderrw_metrics(dataset, is_directed, num_walks, n_runs):
         steps_per_sec = float(matches[-1])
         steps_per_sec_runs.append(steps_per_sec)
 
-        correct_walks = validate_walk_file(
+        total_steps, total_invalid, total_correct = validate_walk_file(
             THUNDERRW_OUTPUT_FILE,
             ts_map,
             directed=is_directed
         )
 
-        correct_walks_runs.append(correct_walks)
+        invalid_step_percent = (total_invalid / total_steps) * 100 if total_steps > 0 else 0
+        invalid_walk_percent = ((num_walks - total_correct) / num_walks) * 100
 
         print(f"Steps/sec: {steps_per_sec:.4f}")
-        print(f"Correct temporal walks: {correct_walks}")
+        print(f"Invalid Hop %: {invalid_step_percent:.2f}%")
+        print(f"Invalid Walk %: {invalid_walk_percent:.2f}%")
+
+        correct_walks_runs.append(total_correct)
 
     return steps_per_sec_runs, correct_walks_runs
 
@@ -282,16 +297,20 @@ def get_tempest_metrics(dataset, is_directed, num_walks, n_runs):
         steps_per_sec = float(match.group(1))
         steps_per_sec_runs.append(steps_per_sec)
 
-        correct_walks = validate_walk_file(
+        total_steps, total_invalid, total_correct = validate_walk_file(
             TEMPEST_OUTPUT_FILE,
             ts_map,
             directed=is_directed
         )
 
-        correct_walks_runs.append(correct_walks)
+        invalid_step_percent = (total_invalid / total_steps) * 100 if total_steps > 0 else 0
+        invalid_walk_percent = ((num_walks - total_correct) / num_walks) * 100
 
         print(f"Steps/sec: {steps_per_sec:.4f}")
-        print(f"Correct temporal walks: {correct_walks}")
+        print(f"Invalid Hop %: {invalid_step_percent:.2f}%")
+        print(f"Invalid Walk %: {invalid_walk_percent:.2f}%")
+
+        correct_walks_runs.append(total_correct)
 
     return steps_per_sec_runs, correct_walks_runs
 
