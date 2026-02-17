@@ -1,7 +1,9 @@
 import pandas as pd
 import numpy as np
+from bisect import bisect_right
+import random
 
-def compute_dataset_metrics(csv_path, directed=False):
+def compute_dataset_metrics(csv_path, directed=False, sample_size=1_000_000):
     print(f"\n===== Processing: {csv_path} =====")
 
     df = pd.read_csv(csv_path)
@@ -27,26 +29,56 @@ def compute_dataset_metrics(csv_path, directed=False):
     print(f"Avg Static Degree: {avg_static_degree:.4f}")
 
     # ============================
-    # 2. Avg Temporal-Valid Neighborhood Size
+    # 2. Build Node → Sorted Timestamp Map
     # ============================
 
-    # Sort by source and timestamp
+    print("Building node-level timestamp index...")
+
     df_sorted = df.sort_values(["u", "ts"])
 
-    # For each (u), count how many future edges remain
-    df_sorted["future_count"] = (
-        df_sorted.groupby("u").cumcount(ascending=False)
-    )
+    node_ts_map = {}
+    for u, group in df_sorted.groupby("u"):
+        node_ts_map[u] = group["ts"].values
 
-    avg_temporal_valid = df_sorted["future_count"].mean()
+    print("Index built.")
 
-    print(f"Avg Temporal-Valid Neighborhood Size: {avg_temporal_valid:.4f}")
+    # ============================
+    # 3. Estimate Avg Γ_t(u) Under Sampling
+    # ============================
+
+    print(f"Sampling {sample_size} hop states...")
+
+    total_gamma = 0
+    counted = 0
+
+    u_values = df["u"].values
+    ts_values = df["ts"].values
+
+    indices = np.random.choice(len(df), size=min(sample_size, len(df)), replace=False)
+
+    for idx in indices:
+        u = u_values[idx]
+        t_prev = ts_values[idx]
+
+        arr = node_ts_map.get(u)
+        if arr is None:
+            continue
+
+        j = bisect_right(arr, t_prev)
+        gamma_size = len(arr) - j
+
+        total_gamma += gamma_size
+        counted += 1
+
+    avg_temporal_branching = total_gamma / counted if counted > 0 else 0
+
+    print(f"Avg Temporal Γ_t(u) Size (Sampled): {avg_temporal_branching:.4f}")
 
     return {
         "Edges": num_edges,
         "Nodes": num_nodes,
         "Avg Static Degree": round(avg_static_degree, 4),
-        "Avg Temporal Valid Neighborhood": round(avg_temporal_valid, 4)
+        "Avg Temporal Branching (Γ_t)": round(avg_temporal_branching, 4)
     }
 
 
