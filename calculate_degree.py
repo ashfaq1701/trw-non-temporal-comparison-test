@@ -1,9 +1,7 @@
 import pandas as pd
 import numpy as np
-from bisect import bisect_right
-import random
 
-def compute_dataset_metrics(csv_path, directed=False, sample_size=1_000_000):
+def compute_dataset_metrics(csv_path, directed=False):
     print(f"\n===== Processing: {csv_path} =====")
 
     df = pd.read_csv(csv_path)
@@ -13,66 +11,40 @@ def compute_dataset_metrics(csv_path, directed=False, sample_size=1_000_000):
     df["ts"] = df["ts"].astype(np.int64)
 
     num_edges = len(df)
+
+    # Unique node count
     num_nodes = pd.unique(df[["u", "i"]].values.ravel()).size
-
-    # ============================
-    # 1. Avg Static Degree
-    # ============================
-
-    if directed:
-        avg_static_degree = num_edges / num_nodes
-    else:
-        avg_static_degree = (2 * num_edges) / num_nodes
 
     print(f"Total edges: {num_edges}")
     print(f"Total nodes: {num_nodes}")
+
+    # ============================
+    # 1️⃣ Avg Static Degree
+    # ============================
+
+    if directed:
+        # Average out-degree
+        avg_static_degree = num_edges / num_nodes
+    else:
+        # Undirected degree
+        avg_static_degree = (2 * num_edges) / num_nodes
+
     print(f"Avg Static Degree: {avg_static_degree:.4f}")
 
     # ============================
-    # 2. Build Node → Sorted Timestamp Map
+    # 2️⃣ Exact Avg Temporal Branching (Γ_t)
     # ============================
 
-    print("Building node-level timestamp index...")
+    # Count outgoing edges per node
+    out_degree = df.groupby("u").size().values
 
-    df_sorted = df.sort_values(["u", "ts"])
+    # Exact expectation:
+    # sum_u k_u (k_u - 1) / 2 divided by total edges
+    total_future_edges = np.sum(out_degree * (out_degree - 1) / 2)
 
-    node_ts_map = {}
-    for u, group in df_sorted.groupby("u"):
-        node_ts_map[u] = group["ts"].values
+    avg_temporal_branching = total_future_edges / num_edges
 
-    print("Index built.")
-
-    # ============================
-    # 3. Estimate Avg Γ_t(u) Under Sampling
-    # ============================
-
-    print(f"Sampling {sample_size} hop states...")
-
-    total_gamma = 0
-    counted = 0
-
-    u_values = df["u"].values
-    ts_values = df["ts"].values
-
-    indices = np.random.choice(len(df), size=min(sample_size, len(df)), replace=False)
-
-    for idx in indices:
-        u = u_values[idx]
-        t_prev = ts_values[idx]
-
-        arr = node_ts_map.get(u)
-        if arr is None:
-            continue
-
-        j = bisect_right(arr, t_prev)
-        gamma_size = len(arr) - j
-
-        total_gamma += gamma_size
-        counted += 1
-
-    avg_temporal_branching = total_gamma / counted if counted > 0 else 0
-
-    print(f"Avg Temporal Γ_t(u) Size (Sampled): {avg_temporal_branching:.4f}")
+    print(f"Avg Temporal Branching (Exact Γ_t): {avg_temporal_branching:.4f}")
 
     return {
         "Edges": num_edges,
