@@ -70,7 +70,7 @@ def build_temporal_index(csv_path, directed=False):
     return ts_map
 
 
-def validate_walk_file(walk_file, ts_map, directed=False):
+def validate_walk_file(walk_file, ts_map, directed=False, is_reversed=False):
     """
     Validates walks and returns total hops, invalid hops, and correct walks count.
     Follows the greedy 'earliest-feasible' assignment rule[cite: 1114, 1155].
@@ -82,8 +82,12 @@ def validate_walk_file(walk_file, ts_map, directed=False):
     with open(walk_file, "r") as f:
         for line in f:
             nodes = line.strip().split()
+
             if len(nodes) <= 1:
                 continue
+
+            if is_reversed:
+                nodes = nodes[::-1]
 
             t_prev = -1
             walk_valid = True
@@ -117,7 +121,7 @@ def validate_walk_file(walk_file, ts_map, directed=False):
     return total_hops, invalid_hops, correct_walks
 
 
-def get_flowwalker_metrics(dataset, is_directed, num_walks, n_runs):
+def get_flowwalker_metrics(dataset, is_directed, is_reversed, num_walks, n_runs):
     print(f"\nBuilding temporal index for {dataset}")
     ts_map = build_temporal_index(
         f"{TEMPORAL_DATASET_PATH}/{dataset}.csv",
@@ -167,7 +171,8 @@ def get_flowwalker_metrics(dataset, is_directed, num_walks, n_runs):
         total_steps, total_invalid, total_correct = validate_walk_file(
             FLOWWALKER_OUTPUT_FILE,
             ts_map,
-            directed=is_directed
+            directed=is_directed,
+            reversed=is_reversed
         )
 
         invalid_step_percent = (total_invalid / total_steps) * 100 if total_steps > 0 else 0
@@ -182,7 +187,7 @@ def get_flowwalker_metrics(dataset, is_directed, num_walks, n_runs):
     return steps_per_sec_runs, correct_walks_runs
 
 
-def get_thunderrw_metrics(dataset, is_directed, num_walks, n_runs):
+def get_thunderrw_metrics(dataset, is_directed, is_reversed, num_walks, n_runs):
     print(f"\nBuilding temporal index for {dataset}")
     ts_map = build_temporal_index(
         f"{TEMPORAL_DATASET_PATH}/{dataset}.csv",
@@ -226,7 +231,8 @@ def get_thunderrw_metrics(dataset, is_directed, num_walks, n_runs):
         total_steps, total_invalid, total_correct = validate_walk_file(
             THUNDERRW_OUTPUT_FILE,
             ts_map,
-            directed=is_directed
+            directed=is_directed,
+            reversed=is_reversed
         )
 
         invalid_step_percent = (total_invalid / total_steps) * 100 if total_steps > 0 else 0
@@ -241,7 +247,7 @@ def get_thunderrw_metrics(dataset, is_directed, num_walks, n_runs):
     return steps_per_sec_runs, correct_walks_runs
 
 
-def get_tempest_metrics(dataset, is_directed, num_walks, n_runs):
+def get_tempest_metrics(dataset, is_directed, is_reversed, num_walks, n_runs):
     print(f"\nBuilding temporal index for {dataset}")
     ts_map = build_temporal_index(
         f"{TEMPORAL_DATASET_PATH}/{dataset}.csv",
@@ -285,7 +291,8 @@ def get_tempest_metrics(dataset, is_directed, num_walks, n_runs):
         total_steps, total_invalid, total_correct = validate_walk_file(
             TEMPEST_OUTPUT_FILE,
             ts_map,
-            directed=is_directed
+            directed=is_directed,
+            reversed=is_reversed
         )
 
         invalid_step_percent = (total_invalid / total_steps) * 100 if total_steps > 0 else 0
@@ -300,21 +307,21 @@ def get_tempest_metrics(dataset, is_directed, num_walks, n_runs):
     return steps_per_sec_runs, correct_walks_runs
 
 
-def main(sampling_method, num_walks, is_directed, n_runs):
+def main(sampling_method, num_walks, is_directed, reversed, n_runs):
     for dataset in DATASET_FILE_NAMES:
         print(f"\n===== Dataset: {dataset} =====")
 
         if sampling_method == "tempest":
             steps, correct = get_tempest_metrics(
-                dataset, is_directed, num_walks, n_runs
+                dataset, is_directed, reversed, num_walks, n_runs
             )
         elif sampling_method == "thunderrw":
             steps, correct = get_thunderrw_metrics(
-                dataset, is_directed, num_walks, n_runs
+                dataset, is_directed, reversed, num_walks, n_runs
             )
         elif sampling_method == "flowwalker":
             steps, correct = get_flowwalker_metrics(
-                dataset, is_directed, num_walks, n_runs
+                dataset, is_directed, reversed, num_walks, n_runs
             )
         else:
             raise ValueError("Invalid sampling method")
@@ -333,9 +340,11 @@ if __name__ == '__main__':
                         help='Number of walks to sample')
     parser.add_argument('--directed', action='store_true',
                         help='Enable directed graphs')
+    parser.add_argument('--reversed', action='store_true',
+                        help='Should the walks be reversed')
     parser.add_argument('--n_runs', type=int, default=5,
                         help='Number of runs')
 
     args = parser.parse_args()
 
-    main(args.sampling_method, args.num_walks, args.directed, args.n_runs)
+    main(args.sampling_method, args.num_walks, args.directed, args.reversed, args.n_runs)
