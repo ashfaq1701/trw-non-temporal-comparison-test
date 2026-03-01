@@ -70,21 +70,6 @@ def build_temporal_index(csv_path, directed=False):
     return ts_map
 
 
-def validate_walk(walk, ts_map):
-    t_prev = -1
-    for i in range(len(walk)-1):
-        u, v = walk[i], walk[i+1]
-        key = (min(u,v) << 32) | max(u,v)
-        arr = ts_map.get(key)
-        if arr is None:
-            return False
-        j = bisect_right(arr, t_prev)
-        if j == len(arr):
-            return False
-        t_prev = arr[j]
-    return True
-
-
 def validate_walk_file(walk_file, ts_map, directed=False):
     """
     Validates walks and returns total hops, invalid hops, and correct walks count.
