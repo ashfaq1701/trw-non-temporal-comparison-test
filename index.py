@@ -172,7 +172,7 @@ def get_flowwalker_metrics(dataset, is_directed, is_reversed, num_walks, n_runs)
             FLOWWALKER_OUTPUT_FILE,
             ts_map,
             directed=is_directed,
-            reversed=is_reversed
+            is_reversed=is_reversed
         )
 
         invalid_step_percent = (total_invalid / total_steps) * 100 if total_steps > 0 else 0
@@ -232,7 +232,7 @@ def get_thunderrw_metrics(dataset, is_directed, is_reversed, num_walks, n_runs):
             THUNDERRW_OUTPUT_FILE,
             ts_map,
             directed=is_directed,
-            reversed=is_reversed
+            is_reversed=is_reversed
         )
 
         invalid_step_percent = (total_invalid / total_steps) * 100 if total_steps > 0 else 0
@@ -292,7 +292,7 @@ def get_tempest_metrics(dataset, is_directed, is_reversed, num_walks, n_runs):
             TEMPEST_OUTPUT_FILE,
             ts_map,
             directed=is_directed,
-            reversed=is_reversed
+            is_reversed=is_reversed
         )
 
         invalid_step_percent = (total_invalid / total_steps) * 100 if total_steps > 0 else 0
