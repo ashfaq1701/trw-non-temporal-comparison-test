@@ -70,14 +70,55 @@ def build_temporal_index(csv_path, directed=False):
     return ts_map
 
 
-def validate_walk_file(walk_file, ts_map, directed=False):
+def _validate_one_direction(nodes, ts_map, directed=False):
     """
-    Validates walks and returns total hops, invalid hops, and correct walks count.
-    Follows the greedy 'earliest-feasible' assignment rule[cite: 1114, 1155].
+    Validate a single walk direction using greedy earliest-feasible timestamps.
+    Returns: (hops, invalid_hops, is_walk_valid)
+    Assumes ts_map[key] exists and is a sorted array of timestamps.
     """
-    correct_walks = 0
-    total_hops = 0
+    if len(nodes) <= 1:
+        return 0, 0, True
+
+    t_prev = -1
     invalid_hops = 0
+
+    for j in range(len(nodes) - 1):
+        u = int(nodes[j])
+        v = int(nodes[j + 1])
+
+        if not directed and u > v:
+            u, v = v, u
+
+        key = (np.uint64(u) << 32) | np.uint64(v)
+        arr = ts_map[key]
+
+        k = bisect_right(arr, t_prev)
+        if k == len(arr):
+            invalid_hops += 1
+            # once broken, keep counting remaining hops as invalid
+            t_prev = float("inf")
+        else:
+            t_prev = arr[k]
+
+    hops = len(nodes) - 1
+    return hops, invalid_hops, (invalid_hops == 0)
+
+
+def validate_walk_file_bidir(walk_file, ts_map, directed=False):
+    """
+    Validates each walk both left->right and right->left.
+    Returns aggregates for:
+      - left_to_right
+      - right_to_left
+      - best (whichever has max correct_walks)
+    """
+    total_hops_lr = 0
+    invalid_hops_lr = 0
+    correct_walks_lr = 0
+
+    total_hops_rl = 0
+    invalid_hops_rl = 0
+    correct_walks_rl = 0
 
     with open(walk_file, "r") as f:
         for line in f:
@@ -85,36 +126,30 @@ def validate_walk_file(walk_file, ts_map, directed=False):
             if len(nodes) <= 1:
                 continue
 
-            t_prev = -1
-            walk_valid = True
+            hops, inv, ok = _validate_one_direction(nodes, ts_map, directed=directed)
+            total_hops_lr += hops
+            invalid_hops_lr += inv
+            if ok:
+                correct_walks_lr += 1
 
-            for i in range(len(nodes) - 1):
-                total_hops += 1
-                u = int(nodes[i])
-                v = int(nodes[i + 1])
+            nodes_rev = nodes[::-1]
+            hops, inv, ok = _validate_one_direction(nodes_rev, ts_map, directed=directed)
+            total_hops_rl += hops
+            invalid_hops_rl += inv
+            if ok:
+                correct_walks_rl += 1
 
-                if not directed:
-                    if u > v: u, v = v, u
+    left_to_right = (total_hops_lr, invalid_hops_lr, correct_walks_lr)
+    right_to_left = (total_hops_rl, invalid_hops_rl, correct_walks_rl)
 
-                key = (np.uint64(u) << 32) | np.uint64(v)
-                arr = ts_map.get(key)
+    best = left_to_right if correct_walks_lr >= correct_walks_rl else right_to_left
 
-                # Check for existence and temporal causality [cite: 1120, 1122]
-                valid_ts_index = bisect_right(arr, t_prev) if arr is not None else len(arr) if arr else 0
-
-                if arr is None or valid_ts_index == len(arr):
-                    invalid_hops += 1
-                    walk_valid = False
-                    # We continue the walk to count all invalid hops,
-                    # but the walk is marked as invalid for the remainder.
-                    t_prev = float('inf')
-                else:
-                    t_prev = arr[valid_ts_index]
-
-            if walk_valid:
-                correct_walks += 1
-
-    return total_hops, invalid_hops, correct_walks
+    return {
+        "left_to_right": left_to_right,
+        "right_to_left": right_to_left,
+        "best": best,
+        "best_direction": "left_to_right" if best is left_to_right else "right_to_left",
+    }
 
 
 def get_flowwalker_metrics(dataset, is_directed, num_walks, n_runs):
@@ -164,16 +199,23 @@ def get_flowwalker_metrics(dataset, is_directed, num_walks, n_runs):
         steps_per_sec = total_steps / sampling_time_sec
         steps_per_sec_runs.append(steps_per_sec)
 
-        total_steps, total_invalid, total_correct = validate_walk_file(
+        res = validate_walk_file_bidir(
             FLOWWALKER_OUTPUT_FILE,
             ts_map,
             directed=is_directed
         )
+        steps_lr, invalid_lr, correct_lr = res["left_to_right"]
+        steps_rl, invalid_rl, correct_rl = res["right_to_left"]
+        total_steps, total_invalid, total_correct = res["best"]
+        best_dir = res["best_direction"]
 
         invalid_step_percent = (total_invalid / total_steps) * 100 if total_steps > 0 else 0
         invalid_walk_percent = ((num_walks - total_correct) / num_walks) * 100
 
         print(f"Steps/sec: {steps_per_sec:.4f}")
+        print(f"Best direction: {best_dir}")
+        print(f"L->R Correct walks: {correct_lr} | Invalid hops: {invalid_lr}")
+        print(f"R->L Correct walks: {correct_rl} | Invalid hops: {invalid_rl}")
         print(f"Invalid Hop %: {invalid_step_percent:.2f}%")
         print(f"Invalid Walk %: {invalid_walk_percent:.2f}%")
 
@@ -223,16 +265,23 @@ def get_thunderrw_metrics(dataset, is_directed, num_walks, n_runs):
         steps_per_sec = float(matches[-1])
         steps_per_sec_runs.append(steps_per_sec)
 
-        total_steps, total_invalid, total_correct = validate_walk_file(
+        res = validate_walk_file_bidir(
             THUNDERRW_OUTPUT_FILE,
             ts_map,
             directed=is_directed
         )
+        steps_lr, invalid_lr, correct_lr = res["left_to_right"]
+        steps_rl, invalid_rl, correct_rl = res["right_to_left"]
+        total_steps, total_invalid, total_correct = res["best"]
+        best_dir = res["best_direction"]
 
         invalid_step_percent = (total_invalid / total_steps) * 100 if total_steps > 0 else 0
         invalid_walk_percent = ((num_walks - total_correct) / num_walks) * 100
 
         print(f"Steps/sec: {steps_per_sec:.4f}")
+        print(f"Best direction: {best_dir}")
+        print(f"L->R Correct walks: {correct_lr} | Invalid hops: {invalid_lr}")
+        print(f"R->L Correct walks: {correct_rl} | Invalid hops: {invalid_rl}")
         print(f"Invalid Hop %: {invalid_step_percent:.2f}%")
         print(f"Invalid Walk %: {invalid_walk_percent:.2f}%")
 
@@ -282,16 +331,23 @@ def get_tempest_metrics(dataset, is_directed, num_walks, n_runs):
         steps_per_sec = float(match.group(1))
         steps_per_sec_runs.append(steps_per_sec)
 
-        total_steps, total_invalid, total_correct = validate_walk_file(
+        res = validate_walk_file_bidir(
             TEMPEST_OUTPUT_FILE,
             ts_map,
             directed=is_directed
         )
+        steps_lr, invalid_lr, correct_lr = res["left_to_right"]
+        steps_rl, invalid_rl, correct_rl = res["right_to_left"]
+        total_steps, total_invalid, total_correct = res["best"]
+        best_dir = res["best_direction"]
 
         invalid_step_percent = (total_invalid / total_steps) * 100 if total_steps > 0 else 0
         invalid_walk_percent = ((num_walks - total_correct) / num_walks) * 100
 
         print(f"Steps/sec: {steps_per_sec:.4f}")
+        print(f"Best direction: {best_dir}")
+        print(f"L->R Correct walks: {correct_lr} | Invalid hops: {invalid_lr}")
+        print(f"R->L Correct walks: {correct_rl} | Invalid hops: {invalid_rl}")
         print(f"Invalid Hop %: {invalid_step_percent:.2f}%")
         print(f"Invalid Walk %: {invalid_walk_percent:.2f}%")
 
