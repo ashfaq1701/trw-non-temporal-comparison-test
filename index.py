@@ -70,11 +70,11 @@ def build_temporal_index(csv_path, directed=False):
     return ts_map
 
 
-def _validate_one_direction(nodes, ts_map, directed=False):
+def _validate_one_direction(nodes, ts_map, directed=False, strict=False):
     """
     Validate a single walk direction using greedy earliest-feasible timestamps.
     Returns: (hops, invalid_hops, is_walk_valid)
-    Assumes ts_map[key] exists and is a sorted array of timestamps.
+    Assumes ts_map[key] is a sorted array of timestamps when present.
     """
     if len(nodes) <= 1:
         return 0, 0, True
@@ -90,7 +90,15 @@ def _validate_one_direction(nodes, ts_map, directed=False):
             u, v = v, u
 
         key = (np.uint64(u) << 32) | np.uint64(v)
-        arr = ts_map[key]
+        arr = ts_map.get(key)
+        if arr is None:
+            if strict:
+                raise RuntimeError(
+                    f"Edge ({u}, {v}) not found in temporal index."
+                )
+            invalid_hops += 1
+            t_prev = float("inf")
+            continue
 
         k = bisect_right(arr, t_prev)
         if k == len(arr):
@@ -104,7 +112,7 @@ def _validate_one_direction(nodes, ts_map, directed=False):
     return hops, invalid_hops, (invalid_hops == 0)
 
 
-def validate_walk_file_bidir(walk_file, ts_map, directed=False):
+def validate_walk_file_bidir(walk_file, ts_map, directed=False, strict=False):
     """
     Validates each walk both left->right and right->left.
     Returns aggregates for:
@@ -126,14 +134,24 @@ def validate_walk_file_bidir(walk_file, ts_map, directed=False):
             if len(nodes) <= 1:
                 continue
 
-            hops, inv, ok = _validate_one_direction(nodes, ts_map, directed=directed)
+            hops, inv, ok = _validate_one_direction(
+                nodes,
+                ts_map,
+                directed=directed,
+                strict=strict,
+            )
             total_hops_lr += hops
             invalid_hops_lr += inv
             if ok:
                 correct_walks_lr += 1
 
             nodes_rev = nodes[::-1]
-            hops, inv, ok = _validate_one_direction(nodes_rev, ts_map, directed=directed)
+            hops, inv, ok = _validate_one_direction(
+                nodes_rev,
+                ts_map,
+                directed=directed,
+                strict=strict,
+            )
             total_hops_rl += hops
             invalid_hops_rl += inv
             if ok:
@@ -152,7 +170,7 @@ def validate_walk_file_bidir(walk_file, ts_map, directed=False):
     }
 
 
-def get_flowwalker_metrics(dataset, is_directed, num_walks, n_runs):
+def get_flowwalker_metrics(dataset, is_directed, num_walks, n_runs, strict_validation=False):
     print(f"\nBuilding temporal index for {dataset}")
     ts_map = build_temporal_index(
         f"{TEMPORAL_DATASET_PATH}/{dataset}.csv",
@@ -202,7 +220,8 @@ def get_flowwalker_metrics(dataset, is_directed, num_walks, n_runs):
         res = validate_walk_file_bidir(
             FLOWWALKER_OUTPUT_FILE,
             ts_map,
-            directed=is_directed
+            directed=is_directed,
+            strict=strict_validation,
         )
         steps_lr, invalid_lr, correct_lr = res["left_to_right"]
         steps_rl, invalid_rl, correct_rl = res["right_to_left"]
@@ -224,7 +243,7 @@ def get_flowwalker_metrics(dataset, is_directed, num_walks, n_runs):
     return steps_per_sec_runs, correct_walks_runs
 
 
-def get_thunderrw_metrics(dataset, is_directed, num_walks, n_runs):
+def get_thunderrw_metrics(dataset, is_directed, num_walks, n_runs, strict_validation=False):
     print(f"\nBuilding temporal index for {dataset}")
     ts_map = build_temporal_index(
         f"{TEMPORAL_DATASET_PATH}/{dataset}.csv",
@@ -268,7 +287,8 @@ def get_thunderrw_metrics(dataset, is_directed, num_walks, n_runs):
         res = validate_walk_file_bidir(
             THUNDERRW_OUTPUT_FILE,
             ts_map,
-            directed=is_directed
+            directed=is_directed,
+            strict=strict_validation,
         )
         steps_lr, invalid_lr, correct_lr = res["left_to_right"]
         steps_rl, invalid_rl, correct_rl = res["right_to_left"]
@@ -290,7 +310,7 @@ def get_thunderrw_metrics(dataset, is_directed, num_walks, n_runs):
     return steps_per_sec_runs, correct_walks_runs
 
 
-def get_tempest_metrics(dataset, is_directed, num_walks, n_runs):
+def get_tempest_metrics(dataset, is_directed, num_walks, n_runs, strict_validation=False):
     print(f"\nBuilding temporal index for {dataset}")
     ts_map = build_temporal_index(
         f"{TEMPORAL_DATASET_PATH}/{dataset}.csv",
@@ -334,7 +354,8 @@ def get_tempest_metrics(dataset, is_directed, num_walks, n_runs):
         res = validate_walk_file_bidir(
             TEMPEST_OUTPUT_FILE,
             ts_map,
-            directed=is_directed
+            directed=is_directed,
+            strict=strict_validation,
         )
         steps_lr, invalid_lr, correct_lr = res["left_to_right"]
         steps_rl, invalid_rl, correct_rl = res["right_to_left"]
@@ -356,21 +377,21 @@ def get_tempest_metrics(dataset, is_directed, num_walks, n_runs):
     return steps_per_sec_runs, correct_walks_runs
 
 
-def main(sampling_method, num_walks, is_directed, n_runs):
+def main(sampling_method, num_walks, is_directed, n_runs, strict_validation=False):
     for dataset in DATASET_FILE_NAMES:
         print(f"\n===== Dataset: {dataset} =====")
 
         if sampling_method == "tempest":
             steps, correct = get_tempest_metrics(
-                dataset, is_directed, num_walks, n_runs
+                dataset, is_directed, num_walks, n_runs, strict_validation=strict_validation
             )
         elif sampling_method == "thunderrw":
             steps, correct = get_thunderrw_metrics(
-                dataset, is_directed, num_walks, n_runs
+                dataset, is_directed, num_walks, n_runs, strict_validation=strict_validation
             )
         elif sampling_method == "flowwalker":
             steps, correct = get_flowwalker_metrics(
-                dataset, is_directed, num_walks, n_runs
+                dataset, is_directed, num_walks, n_runs, strict_validation=strict_validation
             )
         else:
             raise ValueError("Invalid sampling method")
@@ -391,7 +412,12 @@ if __name__ == '__main__':
                         help='Enable directed graphs')
     parser.add_argument('--n_runs', type=int, default=5,
                         help='Number of runs')
+    parser.add_argument(
+        '--strict_validation',
+        action='store_true',
+        help='Raise error if walk contains edge not present in temporal dataset'
+    )
 
     args = parser.parse_args()
 
-    main(args.sampling_method, args.num_walks, args.directed, args.n_runs)
+    main(args.sampling_method, args.num_walks, args.directed, args.n_runs, args.strict_validation)
